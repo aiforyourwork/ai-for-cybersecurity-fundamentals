@@ -1,0 +1,2 @@
+[console_scripts]
+tutorial-02 = tutorial_02.cli:main
