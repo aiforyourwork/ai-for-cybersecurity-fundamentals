@@ -113,6 +113,15 @@ def build_sqlmap_command(
         # from noise). The AI analyst happens to be useful at this volume
         # too — but that's not the reason we set it.
         "-v", "3",
+        # --flush-session forces sqlmap to discard any cached session state
+        # for this URL before probing. Without it, a half-written cache from
+        # a previously-interrupted run (Ctrl-C, kill, host reboot) can cause
+        # the next run to hang trying to "resume" the broken session — and
+        # the hang point is non-deterministic (whichever target's cache got
+        # corrupted). Each run starts fresh; loses the speed-up of session
+        # resumption, gains predictability. The trade-off is right for a
+        # multi-target wrapper where one bad cache stalls the whole batch.
+        "--flush-session",
         # --output-dir keeps sqlmap's session/log files out of the cwd
         # so the user's project folder doesn't accumulate sqlmap state.
         # We use a per-target subfolder so repeat runs don't collide.
@@ -173,6 +182,12 @@ def run_sqlmap(
         text=True,
         timeout=timeout_seconds,
         check=False,
+        # Belt-and-braces with --batch: explicitly close stdin so sqlmap
+        # can't block on an interactive prompt the --batch defaults didn't
+        # cover. Rare edge cases (an unknown target type, a specific WAF
+        # response) still trigger Y/N prompts; with stdin closed they
+        # error out immediately rather than hanging the whole pipeline.
+        stdin=subprocess.DEVNULL,
     )
     return SqlmapResult(
         command=cmd,
