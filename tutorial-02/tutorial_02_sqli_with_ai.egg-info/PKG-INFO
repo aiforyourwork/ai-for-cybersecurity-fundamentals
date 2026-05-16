@@ -1,0 +1,161 @@
+Metadata-Version: 2.4
+Name: tutorial-02-sqli-with-ai
+Version: 0.1.0
+Summary: Drive sqlmap against a WebGoat SQLi lesson and ask Claude to summarise the result. Companion code for AI for Cybersecurity Fundamentals T2.
+Author-email: Long <ngothanglong@gmail.com>
+License: MIT
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+Requires-Dist: anthropic>=0.40.0
+Requires-Dist: pydantic>=2.9.0
+Requires-Dist: python-dotenv>=1.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=9.0; extra == "dev"
+
+# T2 — Find SQL Injection with AI Assistance
+
+Companion code for *AI for Cybersecurity Fundamentals* tutorial 2 on the [AI For Your Work](https://www.youtube.com/@AIForYourWork) channel.
+
+This is a small Python CLI that drives `sqlmap` against a deliberately-vulnerable lab target (OWASP WebGoat), captures the raw output, and asks Claude to turn that wall of text into a structured analyst report — confirmed vulnerability, extracted schema, sample data, and a plain-English business-impact summary.
+
+The AI's job isn't to find the vulnerability (sqlmap does that). It's to **read sqlmap's noisy output and tell you what it means** in 30 seconds instead of 30 minutes of scrolling.
+
+> **Lab targets only. Always.** This technique against any system you don't own or have written authorisation to test is illegal in most jurisdictions. The channel doesn't provide legal advice.
+
+---
+
+## Prerequisites
+
+| Tool | Why | How to install |
+| --- | --- | --- |
+| Python 3.13+ | This package | [python.org](https://python.org) |
+| Java 21+ | WebGoat runs as a JAR | [adoptium.net](https://adoptium.net/) |
+| WebGoat | The lab target | [github.com/WebGoat/WebGoat/releases](https://github.com/WebGoat/WebGoat/releases) — download `webgoat-<version>.jar` |
+| sqlmap | The SQLi exploitation tool we drive | [sqlmap.org](https://sqlmap.org/) — `pip install sqlmap` or clone the repo |
+| Anthropic API key | Claude does the interpretation | [console.anthropic.com](https://console.anthropic.com) — `ANTHROPIC_API_KEY` in `.env` |
+
+## Start the lab
+
+```bash
+java -jar webgoat-<version>.jar
+```
+
+WebGoat starts on `http://localhost:8080/WebGoat`. Open it in a browser, register a new user, and log in. (The credentials only exist for as long as WebGoat is running — they're wiped on restart.)
+
+In your browser:
+
+1. Navigate to **(A) Injection → SQL Injection (intro) → Lesson 9** (or whichever SQLi lesson you want to attack — `attack5a` is the default).
+2. Open DevTools → **Application → Cookies → http://localhost:8080**. Copy the value of the **`JSESSIONID`** cookie.
+
+## Configure the CLI
+
+Copy `.env.example` to `.env` and fill in:
+
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+WEBGOAT_COOKIE=JSESSIONID=ABC...XYZ
+```
+
+Install Python deps:
+
+```bash
+pip install -e .
+```
+
+## Run it
+
+```bash
+python -m tutorial_02 \
+  --url "http://localhost:8080/WebGoat/SqlInjection/attack5a" \
+  --param "name" \
+  --data "name=test&auth_tan=test"
+```
+
+The tool will:
+
+1. Spawn `sqlmap` with `--batch --dbms=hsqldb --dump` against the URL.
+2. Capture the full stdout (typically 100–500 lines of `[INFO]` chatter, parameter testing, payload attempts, and finally a schema/table dump).
+3. Send the captured output to Claude with a security-analyst system prompt.
+4. Print a structured report: vulnerability confirmation, injection type, extracted tables/columns, sample data, plain-English summary, and business-impact line.
+
+### Example output (shape only — your actual run will differ)
+
+```
+=== Raw sqlmap output (truncated) ===
+[INFO] testing connection to the target URL
+[INFO] testing 'AND boolean-based blind - WHERE or HAVING clause'
+[INFO] POST parameter 'name' appears to be 'UNION query (NULL) - 1 to 10 columns' injectable
+...
+
+=== AI analyst report ===
+✓ Vulnerability confirmed
+  Type: UNION-based SQLi
+  Parameter: name (POST)
+  Database: HSQLDB
+
+Extracted schema:
+  Table: user_data (8 columns)
+  Table: employees (4 columns)
+
+Sample data (3 rows):
+  user_data: alice / pwd123, bob / hunter2, charlie / abc123
+
+Plain-English summary:
+  The 'name' parameter in /attack5a is vulnerable to UNION-based SQL injection.
+  An attacker can extract arbitrary tables from the HSQLDB database without
+  authentication beyond a basic WebGoat session cookie.
+
+Business impact:
+  Full database read access — including credential pairs in clear text.
+  Severity: Critical.
+```
+
+The structured JSON form of the same report is saved to `report.json` for later programmatic use (e.g. feeding into a bug-tracker integration in a future tutorial).
+
+## CLI flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--url` | required | Target URL |
+| `--param` | required | The vulnerable parameter to target (sqlmap's `-p`) |
+| `--data` | none | POST body (when targeting a POST endpoint) |
+| `--cookie` | reads `WEBGOAT_COOKIE` env | Session cookie for authenticated lab targets |
+| `--dbms` | `hsqldb` | Sqlmap's `--dbms` hint (WebGoat ships HSQLDB; change for other targets) |
+| `--model` | `claude-haiku-4-5` | Claude model for the analyst step |
+| `--output` | `report.json` | Where to write the structured report |
+| `--dry-run` | off | Run sqlmap but skip the Claude call (cheap preview) |
+| `--mock` | off | Skip sqlmap (use fixture output) and skip Claude (use fixture report). For development. |
+
+## Cost
+
+| Step | Wall time | Cost |
+| --- | --- | --- |
+| sqlmap session | 10–60 seconds | free |
+| Claude analyst call (~3k tokens in, ~500 out) | 1–2 seconds | ~$0.003 with Haiku 4.5 |
+
+Total: under a cent per run. Worth running multiple times during development.
+
+## How it works (pointers into the code)
+
+- [`tutorial_02/sqlmap_runner.py`](tutorial_02/sqlmap_runner.py) — subprocess wrapping `sqlmap` with `--batch` for non-interactive runs. Captures stdout + stderr, surfaces non-zero exit codes with sqlmap's reason.
+- [`tutorial_02/analyst.py`](tutorial_02/analyst.py) — Claude integration. System prompt frames the model as a security analyst auditing intentionally-vulnerable lab output. The response is constrained to the `SqliReport` Pydantic schema via Claude's tool-use / structured-output pattern.
+- [`tutorial_02/cli.py`](tutorial_02/cli.py) — argparse + orchestration. Runs sqlmap, hands the raw output to the analyst, prints + saves the report.
+
+The cleanest separation is intentional: the sqlmap wrapper is dumb (it just runs a process), Claude is the interpreter, and the CLI is the conductor. Each component is independently testable.
+
+## Tests
+
+```bash
+pip install -e ".[dev]"
+pytest -q
+```
+
+The included tests cover the Pydantic schema and the sqlmap-output → string-prep helpers. They don't run sqlmap or hit the Claude API — those are validated manually by running the tool against your own WebGoat instance.
+
+## Why WebGoat and not Juice Shop?
+
+Both work. We use WebGoat here because (a) it's the canonical OWASP teaching platform for SQLi specifically and (b) the JAR distribution avoids a Docker prerequisite. The code is target-agnostic — pass any URL/parameter combination, change `--dbms` if needed, and the same wrapper works against Juice Shop (`--dbms=sqlite`), DVWA (`--dbms=mysql`), or your own intentionally-vulnerable container.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
