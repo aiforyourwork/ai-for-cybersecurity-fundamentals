@@ -1,0 +1,40 @@
+[project]
+name = "tutorial-03-subdomain-enum-with-ai"
+version = "0.1.0"
+description = "AI-augmented subdomain enumeration: subfinder + Claude for candidate generation and ranking. Companion code for AI for Cybersecurity Fundamentals T3."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Long", email = "ngothanglong@gmail.com" },
+]
+license = { text = "MIT" }
+
+dependencies = [
+    "anthropic>=0.40.0",
+    "beautifulsoup4>=4.12.0",
+    "pydantic>=2.9.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.32.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "responses>=0.25.0",
+]
+
+[project.scripts]
+tutorial-03 = "tutorial_03.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tutorial_03*"]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

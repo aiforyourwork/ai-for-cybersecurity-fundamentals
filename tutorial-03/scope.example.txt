@@ -1,0 +1,27 @@
+# Authorised scope for this engagement. One wildcard pattern per line.
+# Lines beginning with # are comments; blank lines ignored.
+#
+# Patterns use the shell-glob form supported by Python's fnmatch:
+#   *.example.com       → any subdomain of example.com (one or more labels)
+#   *.dev.example.com   → any subdomain of dev.example.com
+#   exact.example.com   → only the exact host
+#
+# The CLI's --scope flag is MANDATORY. Anything outside this file is
+# hard-filtered before any DNS or HTTP traffic — there is no override.
+#
+# This file ships pointing at the tool's --mock target so the out-of-the-box
+# example runs end-to-end against canned fixtures with no real-world exposure.
+# To run against a real authorised target, REPLACE this file's contents with
+# the wildcards your authorisation actually covers.
+#
+# Recommended authorised-target options:
+#   - Your own domain (most defensible — you authorise yourself)
+#   - A US federal VDP under CISA BOD 20-01 (broad scope, public policy,
+#     binding safe harbour: https://www.cisa.gov/news-events/directives/bod-20-01)
+#   - A bug-bounty program with an explicitly published wildcard scope;
+#     verify at recording time via https://github.com/arkadiyt/bounty-targets-data
+#
+# Whichever you pick, verify the program's policy text RIGHT BEFORE recording
+# and again before publishing any captured output. Scopes drift.
+
+*.demo-target.test
