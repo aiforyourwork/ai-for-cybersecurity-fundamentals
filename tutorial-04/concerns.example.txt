@@ -1,0 +1,21 @@
+# Natural-language security concerns for tutorial-04.
+#
+# One concern per line. Lines starting with `#` and blank lines are
+# ignored. Pass any one of these to `--concern` to drive the pipeline:
+# Claude turns the concern into a semgrep YAML rule, semgrep runs it
+# across the WebGoat source tree, and Claude triages every match.
+#
+# Use these as starting points, then write your own concerns against
+# your own codebases. The shape that works best: a verb-led sentence
+# naming the bug class AND the dataflow shape ("where user input flows
+# into X"). The shape that doesn't: vague directives like "find bugs".
+
+Find SQL injection patterns where user input flows into JDBC queries.
+
+Find path traversal patterns where filesystem paths are constructed from user input.
+
+# Future ideas worth trying (not demoed in T4):
+# Find command injection patterns where user input flows into Runtime.exec or ProcessBuilder.
+# Find XXE patterns where untrusted XML is parsed without disabling external entities.
+# Find weak-crypto patterns where MD5 / SHA-1 are used for password hashing or signing.
+# Find insecure deserialization patterns where ObjectInputStream reads untrusted bytes.
