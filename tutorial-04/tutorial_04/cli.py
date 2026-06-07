@@ -352,7 +352,7 @@ def _print_and_save_outputs(
 
 _MOCK_RULE_YAML = """\
 rules:
-  - id: tutorial-04/sqli-jdbc-user-input
+  - id: tutorial-04.sqli-jdbc-user-input
     message: User input concatenated into a JDBC statement — classic SQLi sink.
     languages: [java]
     severity: ERROR
@@ -377,7 +377,7 @@ def _mock_full_report(*, source_root: str, concern: str) -> FullReport:
     catches over-broad pattern matches.
     """
     rule = GeneratedRule(
-        rule_id="tutorial-04/sqli-jdbc-user-input",
+        rule_id="tutorial-04.sqli-jdbc-user-input",
         yaml_body=_MOCK_RULE_YAML,
         rationale=(
             "Matches any Statement.execute*() call whose argument isn't "
@@ -389,7 +389,7 @@ def _mock_full_report(*, source_root: str, concern: str) -> FullReport:
     fixtures = [
         (
             SemgrepFinding(
-                rule_id="tutorial-04/sqli-jdbc-user-input",
+                rule_id="tutorial-04.sqli-jdbc-user-input",
                 file_path="src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5a.java",
                 start_line=73, end_line=73,
                 matched_code='statement.executeQuery("SELECT * FROM user_data WHERE userid = " + accountName)',
@@ -411,7 +411,7 @@ def _mock_full_report(*, source_root: str, concern: str) -> FullReport:
         ),
         (
             SemgrepFinding(
-                rule_id="tutorial-04/sqli-jdbc-user-input",
+                rule_id="tutorial-04.sqli-jdbc-user-input",
                 file_path="src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5b.java",
                 start_line=80, end_line=80,
                 matched_code='statement.execute("SELECT * FROM user_data WHERE login_count = " + loginCount + " AND userid = " + accountName)',
@@ -432,7 +432,7 @@ def _mock_full_report(*, source_root: str, concern: str) -> FullReport:
         ),
         (
             SemgrepFinding(
-                rule_id="tutorial-04/sqli-jdbc-user-input",
+                rule_id="tutorial-04.sqli-jdbc-user-input",
                 file_path="src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionAdvanced.java",
                 start_line=42, end_line=42,
                 matched_code='statement.execute(initSql)',

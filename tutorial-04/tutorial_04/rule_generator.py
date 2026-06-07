@@ -29,6 +29,7 @@ Design choices worth flagging:
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 import yaml
@@ -43,11 +44,15 @@ class GeneratedRule(BaseModel):
     rule_id: str = Field(
         ...,
         description=(
-            "Short, lowercase, hyphen-separated identifier for the rule. "
-            "Convention: ``tutorial-04/<bug-class>-<context>``, e.g. "
-            "``tutorial-04/sqli-jdbc-user-input`` or "
-            "``tutorial-04/path-traversal-file-constructor``. Becomes the "
-            "rule's ``id:`` field in the emitted YAML."
+            "Short identifier for the rule. MUST match semgrep's regex "
+            "``^[a-zA-Z0-9._-]*$`` — letters, digits, dots, underscores, "
+            "and hyphens ONLY. **No forward slashes** (semgrep rejects "
+            "them with InvalidRuleSchemaError). Convention: "
+            "``tutorial-04.<bug-class>-<context>`` using a dot to "
+            "namespace the bug class. Example: "
+            "``tutorial-04.sqli-jdbc-user-input`` or "
+            "``tutorial-04.path-traversal-file-constructor``. Becomes "
+            "the rule's ``id:`` field in the emitted YAML."
         ),
     )
     yaml_body: str = Field(
@@ -118,11 +123,16 @@ described? If unsure, prefer a slightly broader pattern (the AI triager \
 catches false positives downstream) over a stricter one that misses \
 real bugs.
 
-Set ``rule_id`` to a short hyphen-separated identifier following the \
-convention ``tutorial-04/<bug-class>-<dataflow-shape>``. Set \
-``rationale`` to one short sentence describing what the rule actually \
-matches in concrete terms — surfaces in the terminal so the user \
-understands what they're about to run.
+Set ``rule_id`` to a short identifier matching semgrep's regex \
+``^[a-zA-Z0-9._-]*$`` — letters, digits, dots, underscores, and hyphens \
+only. **No forward slashes** (semgrep rejects rule IDs containing them \
+with an InvalidRuleSchemaError). Convention: \
+``tutorial-04.<bug-class>-<dataflow-shape>`` using a dot for the \
+namespace separator. Example: ``tutorial-04.sqli-jdbc-user-input``.
+
+Set ``rationale`` to one short sentence describing what the rule \
+actually matches in concrete terms — surfaces in the terminal so the \
+user understands what they're about to run.
 """
 
 
@@ -245,9 +255,34 @@ def _call_and_validate(
             f"Raw content: {response.content!r}"
         )
     rule = GeneratedRule.model_validate(tool_use["input"])
+    rule = _sanitize_rule_id(rule)
     if validate_rule_yaml(rule.yaml_body):
         return rule
     return None
+
+
+_VALID_RULE_ID_CHARS = re.compile(r"[^a-zA-Z0-9._-]")
+
+
+def _sanitize_rule_id(rule: GeneratedRule) -> GeneratedRule:
+    """Replace any character not allowed by semgrep's ``^[a-zA-Z0-9._-]*$``
+    regex with a dot in BOTH the Pydantic field and the YAML body's ``id:``
+    line. Belt-and-braces against the model still emitting slashes despite
+    the prompt — forward slash is the historical mistake worth defending.
+
+    Returns a NEW GeneratedRule (Pydantic models are immutable-by-convention
+    for our purposes — model_copy preserves type).
+    """
+    bad_id = rule.rule_id
+    clean_id = _VALID_RULE_ID_CHARS.sub(".", bad_id)
+    if clean_id == bad_id:
+        return rule
+    # Also rewrite the YAML body's ``id:`` line. The model usually emits
+    # ``id: tutorial-04/sqli-jdbc-user-input`` as the first key under the
+    # rule entry — replace the whole-string occurrence to avoid partial
+    # matches inside messages or comments.
+    new_yaml = rule.yaml_body.replace(bad_id, clean_id)
+    return rule.model_copy(update={"rule_id": clean_id, "yaml_body": new_yaml})
 
 
 def _find_tool_use(content_blocks: list[Any], tool_name: str) -> dict | None:
