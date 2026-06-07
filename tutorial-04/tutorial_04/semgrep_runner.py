@@ -130,7 +130,6 @@ def run_semgrep(
         binary,
         "--config", str(rules_file_path),
         "--json",
-        "--quiet",
         "--no-git-ignore",
         "--metrics=off",
     ]
@@ -160,9 +159,30 @@ def run_semgrep(
         ) from exc
 
     if completed.returncode not in (0, 1):
-        tail = (completed.stderr or "")[-400:]
+        # Hints for the common non-success exit codes. Semgrep documents
+        # these at https://semgrep.dev/docs/cli-reference/#exit-codes.
+        hints = {
+            2: "argument parsing error — check CLI flags.",
+            3: "target-file errors — at least one source file couldn't be read.",
+            4: "the target codebase contains invalid syntax semgrep can't parse.",
+            5: "semgrep crashed; check stderr below.",
+            6: "rule YAML is invalid. Check generated_rules.yml for a structural error.",
+            7: "rule has invalid pattern syntax. Most likely the Claude-generated "
+               "rule used a pattern semgrep can't parse — re-run (Claude's second draft "
+               "tends to be simpler), or rephrase --concern.",
+        }
+        hint = hints.get(completed.returncode, "see stderr / stdout below.")
+        # Errors can show up on either stream depending on the failure mode.
+        stderr_tail = (completed.stderr or "").rstrip()[-800:] or "(empty)"
+        stdout_tail = (completed.stdout or "").rstrip()[-800:] or "(empty)"
         raise SemgrepRunError(
-            f"semgrep exited {completed.returncode}. stderr tail:\n  {tail}"
+            f"semgrep exited {completed.returncode}: {hint}\n"
+            f"  rule file : {rules_file_path}\n"
+            f"  stderr    : {stderr_tail}\n"
+            f"  stdout    : {stdout_tail}\n"
+            f"To diagnose manually, try:\n"
+            f"  semgrep --validate --config={rules_file_path}\n"
+            f"  semgrep --config={rules_file_path} {target_dir}"
         )
 
     try:

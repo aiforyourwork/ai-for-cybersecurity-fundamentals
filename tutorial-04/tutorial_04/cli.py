@@ -63,7 +63,7 @@ DEFAULT_OUTPUT = "report.json"
 DEFAULT_RULES_OUT = "generated_rules.yml"
 DEFAULT_SEMGREP_RAW = "semgrep_raw.json"
 DEFAULT_WORKERS = 8
-DEFAULT_MAX_FILES = 200
+DEFAULT_MAX_FILES = 1000  # WebGoat has ~300+ Java files; 200 cap clipped it.
 
 
 def build_parser() -> argparse.ArgumentParser:
