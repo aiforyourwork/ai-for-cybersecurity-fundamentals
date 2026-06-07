@@ -99,12 +99,21 @@ Rules you must follow:
    ``pattern-either:`` style over deprecated ``pattern-not-inside`` \
    combinations when possible. Use ``metavariable-pattern`` for \
    parameter-source tracking when the rule needs it.
-3. **Be specific over broad.** A rule that flags everything is useless. \
-   Pin the matcher to the actual sink (e.g. ``Statement.executeQuery(...)``, \
-   ``Path.of(...)``, ``new File(...)``) AND when feasible the source \
-   (e.g. ``request.getParameter(...)``, ``HttpServletRequest`` accessor). \
-   False positives cost the analyst time; false negatives cost the \
-   organisation money.
+3. **Err on the side of MORE matches, not fewer.** This rule's matches \
+   are not the final report — every match goes through an AI triager \
+   that decides whether it's a real bug. So a rule that flags ten \
+   matches where the triager confirms three is healthy. A rule that \
+   flags zero because it over-constrained the pattern is a failure. \
+   Pin the matcher to the SINK (e.g. ``Statement.executeQuery(...)``, \
+   ``Path.of(...)``, ``new File(...)``) but be cautious about \
+   constraining the SOURCE. Different codebases get user input \
+   different ways — Spring's ``@RequestParam`` argument, Servlet's \
+   ``request.getParameter()``, framework-specific accessors, even \
+   plain method parameters that callers pass user input into. Rather \
+   than naming a specific source accessor, prefer constraining only \
+   that the argument is NOT a hard-coded literal (e.g. \
+   ``pattern-not: $STMT.executeQuery("...")``) and let the triager \
+   determine whether the variable carries user input.
 4. **Set ``severity`` honestly.** ``ERROR`` for the concern's headline \
    bug class; ``WARNING`` only if the matched shape is a *likely* but not \
    certain instance.
