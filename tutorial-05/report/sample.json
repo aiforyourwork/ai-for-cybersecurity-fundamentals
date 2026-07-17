@@ -1,0 +1,41 @@
+{
+  "executive_summary": "This Phase-1 assessment consolidated dynamic testing, static code analysis, and external attack-surface enumeration against the lab environment. SQL injection was confirmed both dynamically (two exploitable endpoints) and statically (three user-input-to-JDBC sinks), giving high confidence in an exploitable, high-impact weakness. External recon additionally surfaced several authentication-protected non-production environments and an exposed administration login. Remediation should prioritize parameterized queries and review of the exposed non-prod surface.",
+  "overall_severity": "Critical",
+  "findings": [
+    {
+      "title": "SQL injection via user input flowing into JDBC queries",
+      "asset": "WebGoat SqlInjection endpoints + UserService.java:53, JWTHeaderKIDEndpoint.java:73",
+      "source": "Static + Dynamic (corroborated)",
+      "severity": "Critical",
+      "confidence": "High",
+      "cwe": "CWE-89",
+      "owasp": "A03:2021 – Injection",
+      "mitre_attack": [
+        "T1190"
+      ],
+      "evidence": "sqlmap confirmed injection on parameters `userid` and `action_string`; semgrep found three JDBC sinks built by string concatenation of user-controlled input. Static and dynamic signals agree.",
+      "remediation": "Replace string-concatenated SQL with parameterized queries (PreparedStatement with bound parameters) at all identified sinks; add a regression test per fix."
+    },
+    {
+      "title": "Administration console login exposed on the internet",
+      "asset": "admin.test.aiforyourwork.net",
+      "source": "Recon",
+      "severity": "Medium",
+      "confidence": "High",
+      "cwe": "CWE-284",
+      "owasp": "A01:2021 – Broken Access Control",
+      "mitre_attack": [
+        "T1133"
+      ],
+      "evidence": "Subdomain enumeration found an internet-reachable admin login (HTTP 401).",
+      "remediation": "Restrict the admin console to a VPN/allow-list; enforce MFA; monitor auth failures."
+    }
+  ],
+  "attack_surface_notes": "31 live hosts under the test domain; multiple non-production environments (staging, dev, qa, internal) and sensitive services (billing, payments, SSO, monitoring, webhooks) are publicly reachable, most behind a 401 auth challenge. Non-prod environments are a common weak point and should not be openly reachable.",
+  "recommendations": [
+    "Parameterize all identified SQL sinks (highest priority).",
+    "Remove or IP-restrict public access to non-production environments.",
+    "Place the admin and internal-tools logins behind VPN/allow-list + MFA.",
+    "Re-scan after remediation to confirm the injections are closed."
+  ]
+}

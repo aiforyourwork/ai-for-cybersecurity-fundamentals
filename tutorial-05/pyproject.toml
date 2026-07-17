@@ -1,0 +1,30 @@
+[project]
+name = "tutorial-05-assessment-report"
+version = "0.1.0"
+description = "Consolidate Phase-1 tool output (SQLi, subdomain recon, SAST) into a client security-assessment report with Claude. Companion code for AI for Cybersecurity Fundamentals T5."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Long", email = "ngothanglong@gmail.com" }]
+license = { text = "MIT" }
+
+dependencies = [
+  "anthropic>=0.40.0",
+  "pydantic>=2.9.0",
+  "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+pdf = ["weasyprint>=60"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+tutorial-05 = "tutorial_05.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tutorial_05*"]
+exclude = ["tests*"]
